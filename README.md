@@ -139,6 +139,20 @@ Flask + gunicorn + nginx on Ubuntu 24.04 · vanilla JS + Server-Sent Events dash
    on camera. If that isn't possible, merge with "bypass branch protections" as admin.
 
 ### 3. Azure (OIDC, no stored secrets)
+
+**With Terraform (recommended):** `azure/bootstrap/` creates everything in this step: state storage, the `incidentflow-gha`
+app with its federated credentials, role assignments, the GitHub `production` environment and every repository variable below.
+```powershell
+az login; gh auth login
+cp azure/bootstrap/terraform.tfvars.example azure/bootstrap/terraform.tfvars   # set github_owner, app_dns_label
+./azure/deploy.ps1                    # bootstrap (local state) → runs the terraform-apply workflow → prints APP_URL
+./azure/destroy.ps1 -KeepBootstrap    # delete the VM and incidentflow-rg only (terraform-destroy workflow)
+./azure/destroy.ps1                   # delete everything: app infra first, then state storage and identity
+```
+The bootstrap keeps its own state in `azure/bootstrap/terraform.tfstate` (gitignored); don't lose it. `destroy.ps1 -Local` destroys
+the app infra from your machine instead of GitHub Actions.
+
+**By hand**, the equivalent `az` commands:
 ```bash
 az login
 SUB=$(az account show --query id -o tsv)
@@ -188,8 +202,8 @@ Merge PRs one at a time for the clearest story. Merging them all at once also wo
 counts, because the newer deploy contains its change.
 
 **Reset between runs:** `uv run python -m scripts.reset_demo`. It closes agent PRs and opens a reset PR for you to merge, which puts
-every pilot app back to its original code, colour and tests, and the VM back to B1s. **Cost:** a B1s/B2s VM costs about $10–30 a month; run `terraform destroy`
-(or delete `incidentflow-rg`) when you're done.
+every pilot app back to its original code, colour and tests, and the VM back to B1s. **Cost:** a B1s/B2s VM costs about $10–30 a month; run `./azure/destroy.ps1 -KeepBootstrap` (or the
+**terraform-destroy** workflow, typing `destroy` to confirm) when you're done.
 
 ## Tests
 ```

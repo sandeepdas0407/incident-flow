@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and fill in.
+github_owner  = "sandeepdas0407"
+github_repo   = "incident-flow-demo-app"
+app_dns_label = "incidentflow-yourname" # globally unique
+app_location  = "centralindia"
+
+# subscription_id = "00000000-0000-0000-0000-000000000000"   # else ARM_SUBSCRIPTION_ID / `az account show`
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+# manage_github = false   # set the GitHub variables by hand instead (see outputs)
+# extra_federated_subjects = ["repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production"]

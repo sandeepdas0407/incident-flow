@@ -7,3 +7,10 @@ __pycache__/
 
 # the demo app lives in its own repo: github.com/sandeepdas0407/incident-flow-demo-app
 demo-app-repo/
+
+# terraform (bootstrap state is local and must not be committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+azure/bootstrap/terraform.tfvars

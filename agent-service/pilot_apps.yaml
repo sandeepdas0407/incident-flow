@@ -1,0 +1,24 @@
+# The pilot environment: the ONLY applications the chatbot may raise tickets for
+# and the agents may change. Shared by the chatbot (name validation) and the
+# playbooks (each app's changes stay inside its own folder).
+apps:
+  - id: orders
+    name: Contoso Orders
+    aliases: [orders, order, orders app, order app, order tracking, contoso order]
+    path: apps/orders
+    port: 80
+    summary: Customer orders list and order statistics API (/api/orders).
+
+  - id: inventory
+    name: Contoso Inventory
+    aliases: [inventory, inventory app, stock, stock app, warehouse, contoso stock]
+    path: apps/inventory
+    port: 8081
+    summary: Warehouse stock levels and low-stock alerts API (/api/stock).
+
+  - id: bookings
+    name: Contoso Bookings
+    aliases: [bookings, booking, booking app, bookings app, room booking, meeting rooms, contoso booking]
+    path: apps/bookings
+    port: 8082
+    summary: Meeting room reservations and bookings API (/api/bookings).

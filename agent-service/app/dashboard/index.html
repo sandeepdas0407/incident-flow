@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Flow</title>
+<style>
+  :root {
+    --bg: #0E1116; --panel: #161B22; --panel-2: #1C2230; --line: #2A3140;
+    --text: #E6EDF3; --muted: #8B949E; --accent: #5EA3FF; --accent-ink: #0B1220;
+    --ok: #3FB950; --warn: #D29922; --bad: #F85149; --idle: #3A4252;
+    --me: #1F3A5F;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column;
+         font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline;
+           padding: 16px 24px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  nav { display: flex; gap: 16px; flex-wrap: wrap; margin-left: auto; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(63,185,80,.2); }
+
+  .layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(340px, 420px) 1fr; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin: 0; font-weight: 600; }
+
+  /* ---------- chat ---------- */
+  .chat { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--panel); }
+  .chat-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .btn { font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 1px solid var(--line);
+         border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 88%; padding: 9px 12px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.assistant { background: var(--panel-2); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg.user { background: var(--me); align-self: flex-end; border-bottom-right-radius: 4px; }
+  .typing { align-self: flex-start; color: var(--muted); font-size: 13px; padding: 4px 2px; }
+  .typing::after { content: "…"; animation: pulse 1.2s ease-in-out infinite; }
+  .tcard { align-self: stretch; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 12px; }
+  .tcard .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .tcard dl { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; margin: 8px 0 10px; font-size: 13px; }
+  .tcard dt { color: var(--muted); }
+  .tcard dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .tcard .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tcard.done { border-color: rgba(63,185,80,.5); }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--line); }
+  .state-note { color: var(--muted); font-size: 12px; }
+  form.compose { display: flex; gap: 8px; padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+  textarea { flex: 1; resize: none; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+             border-radius: 10px; padding: 9px 12px; min-height: 42px; max-height: 140px; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .hints { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+  .hint { font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+
+  /* ---------- timeline ---------- */
+  .timeline { min-height: 0; overflow-y: auto; padding: 14px 24px 24px; }
+  .timeline h2 { margin: 2px 0 14px; }
+  #board { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); }
+  .empty { color: var(--muted); padding: 40px 0; grid-column: 1 / -1; text-align: center; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; animation: in .35s ease-out; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+  .card-head { padding: 14px 16px 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .num { font-weight: 600; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  .kind { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .app-tag { font-size: 11px; color: var(--accent); border: 1px solid rgba(94,163,255,.35); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+  .desc { grid-column: 1 / -1; color: var(--muted); }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); align-self: start; white-space: nowrap; }
+  .badge.resolved { color: var(--ok); border-color: rgba(63,185,80,.4); }
+  .badge.pr_open { color: var(--warn); border-color: rgba(210,153,34,.4); }
+  .badge.handed_off, .badge.failed { color: var(--bad); border-color: rgba(248,81,73,.4); }
+  .badge.triaging, .badge.diagnosing, .badge.deploying, .badge.validating { color: var(--accent); border-color: rgba(94,163,255,.4); }
+  .steps { display: grid; grid-template-columns: repeat(8, 1fr); padding: 4px 16px 14px; gap: 4px; }
+  .step { text-align: center; font-size: 11px; color: var(--muted); }
+  .step i { display: block; height: 4px; border-radius: 2px; background: var(--idle); margin-bottom: 6px; }
+  .step.done i { background: var(--ok); }
+  .step.active i { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  .step.wait i { background: var(--warn); }
+  .step.bad i { background: var(--bad); }
+  .step.done, .step.active, .step.wait { color: var(--text); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  ol { list-style: none; margin: 0; padding: 10px 16px 14px; background: var(--panel-2); border-top: 1px solid var(--line); max-height: 240px; overflow: auto; }
+  li { display: grid; grid-template-columns: 62px 78px 1fr; gap: 8px; padding: 4px 0; font-size: 13px; }
+  li time { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  li b { font-weight: 500; color: var(--accent); text-transform: uppercase; font-size: 11px; letter-spacing: .4px; padding-top: 2px; }
+  li.handoff b, li.error b { color: var(--bad); }
+  li.resolved b { color: var(--ok); }
+  li.remediate b { color: var(--warn); }
+  li span { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  @media (max-width: 900px) {
+    body { height: auto; }
+    .layout { grid-template-columns: 1fr; }
+    .chat { border-right: 0; border-bottom: 1px solid var(--line); height: 78vh; }
+    .timeline { overflow: visible; }
+  }
+  @media (max-width: 600px) {
+    header, .timeline { padding-left: 16px; padding-right: 16px; }
+    nav { margin-left: 0; }
+    li { grid-template-columns: 54px 1fr; }
+    li b { grid-column: 2; }
+    li span { grid-column: 1 / -1; }
+    .steps { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Incident Flow <span>· pilot service desk &amp; AI Ops agents</span></h1>
+  <span class="live"><i class="dot" id="dot"></i><span id="live">connecting</span></span>
+  <nav id="links"></nav>
+</header>
+<div class="layout">
+  <aside class="chat" aria-label="Service desk chat">
+    <div class="chat-head"><h2>Service desk chat</h2><button class="btn" id="newchat" type="button">New chat</button></div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="hints" id="hints"></div>
+    <form class="compose" id="compose">
+      <textarea id="input" rows="1" placeholder="Describe the issue or change, or ask for a ticket's status…" aria-label="Message"></textarea>
+      <button class="btn primary" id="send" type="submit">Send</button>
+    </form>
+  </aside>
+  <main class="timeline">
+    <h2>Live agent timeline</h2>
+    <div id="board"><div class="empty">Waiting for tickets routed to the AI Ops group…</div></div>
+  </main>
+</div>
+
+<script>
+const STEPS = ["Intake", "Triage", "Diagnose", "PR", "Merge", "Deploy", "Validate", "Resolved"];
+const STAGE_INDEX = { intake: 0, triage: 1, diagnosis: 2, pr: 3, merge: 4, deploy: 5, validate: 6, resolved: 7, remediate: 1 };
+const LEVEL = { high: "High", medium: "Medium", low: "Low" };
+const tickets = new Map();
+let APPS = {};
+const board = document.getElementById("board");
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+function time(ts) { return new Date(ts.endsWith("Z") || ts.includes("+") ? ts : ts + "Z").toLocaleTimeString([], { hour12: false }); }
+function linkify(html) { return html.replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+/* ---------------- timeline ---------------- */
+function stepStates(t) {
+  // a follow-up fix after a failed validation restarts the bar from Diagnose
+  const lastFix = t.events.map(e => e.stage).lastIndexOf("remediate");
+  const evs = lastFix >= 0 ? t.events.slice(lastFix) : t.events;
+  const reached = Math.max(-1, ...evs.map(e => STAGE_INDEX[e.stage] ?? -1));
+  const failed = t.status === "handed_off" || t.status === "failed";
+  return STEPS.map((_, i) => {
+    if (t.status === "resolved" || i < reached) return "done";
+    if (i === reached) return failed ? "bad" : "done";
+    if (i === reached + 1 && !failed) return t.status === "pr_open" ? "wait" : "active";
+    return "";
+  });
+}
+
+function render(t) {
+  let el = document.getElementById("t-" + t.sys_id);
+  if (!el) {
+    el = document.createElement("section");
+    el.className = "card"; el.id = "t-" + t.sys_id;
+    board.querySelector(".empty")?.remove();
+    board.prepend(el);
+  }
+  const states = stepStates(t);
+  const label = { pr_open: "awaiting approval", handed_off: "handed off" }[t.status] || t.status;
+  const app = t.app && APPS[t.app] ? `<span class="app-tag">${esc(APPS[t.app].name)}</span>` : "";
+  el.innerHTML = `
+    <div class="card-head">
+      <div><span class="num">${esc(t.number)}</span><span class="kind">${t.table === "change_request" ? "Change Request" : "Incident"}${t.scenario ? " · " + esc(t.scenario) : ""}</span>${app}</div>
+      <span class="badge ${t.status}">${esc(label)}</span>
+      <div class="desc">${esc(t.short_description)}</div>
+    </div>
+    <div class="steps">${STEPS.map((s, i) => `<div class="step ${states[i]}"><i></i>${s}</div>`).join("")}</div>
+    <ol>${t.events.map(e => `<li class="${e.stage}"><time>${time(e.created_at)}</time><b>${esc(e.stage)}</b>
+      <span>${esc(e.message)}${e.link ? ` <a href="${esc(e.link)}" target="_blank" rel="noopener">open ↗</a>` : ""}</span></li>`).join("")}</ol>`;
+  const ol = el.querySelector("ol"); ol.scrollTop = ol.scrollHeight;
+}
+
+async function loadBoard() {
+  const [cfg, list] = await Promise.all([fetch("/api/config").then(r => r.json()), fetch("/api/tickets").then(r => r.json())]);
+  APPS = Object.fromEntries((cfg.apps || []).map(a => [a.id, a]));
+  const links = [["ServiceNow", cfg.sn_instance_url], ["GitHub", cfg.github_repo && "https://github.com/" + cfg.github_repo],
+                 ...(cfg.apps || []).map(a => [a.name.replace("Contoso ", ""), a.url])];
+  document.getElementById("links").innerHTML = links.filter(l => l[1]).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)} ↗</a>`).join("");
+  list.reverse().forEach(t => { tickets.set(t.sys_id, t); render(t); });
+}
+
+function connect() {
+  const es = new EventSource("/events");
+  const dot = document.getElementById("dot"), live = document.getElementById("live");
+  es.onopen = () => { dot.classList.add("on"); live.textContent = "live"; };
+  es.onerror = () => { dot.classList.remove("on"); live.textContent = "reconnecting"; };
+  es.onmessage = (m) => {
+    const msg = JSON.parse(m.data);
+    const t = tickets.get(msg.ticket.sys_id) || { ...msg.ticket, events: [] };
+    Object.assign(t, msg.ticket);
+    if (msg.kind === "event") t.events.push(msg.event);
+    tickets.set(t.sys_id, t);
+    render(t);
+  };
+}
+
+/* ---------------- chat ---------------- */
+const msgs = document.getElementById("msgs"), input = document.getElementById("input");
+const sendBtn = document.getElementById("send"), hints = document.getElementById("hints");
+let chat = null, busy = false;
+const HINTS = ["Inventory stock page is throwing errors", "Change the Bookings background colour", "Payroll app is down", "Status of my tickets"];
+
+function draftCard(d) {
+  const latest = chat?.draft;
+  const isLatest = latest && latest.id === d.id;
+  const status = isLatest ? latest.status : "replaced";
+  const type = d.ticket_type === "change_request" ? "Change request" : "Incident";
+  const color = d.requested_color ? `<dt>Colour</dt><dd><i class="swatch" style="background:${esc(d.requested_color)}"></i>${esc(d.requested_color)}</dd>` : "";
+  let actions;
+  if (status === "pending") actions = `<button class="btn primary" type="button" data-confirm="${esc(d.id)}">Confirm &amp; raise</button>
+      <button class="btn" type="button" data-edit>Make changes</button>`;
+  else if (status === "created") actions = `<span class="state-note">Raised as ${esc(latest.number)}</span>`;
+  else actions = `<span class="state-note">Replaced by a newer draft</span>`;
+  return `<div class="tcard"><div class="k">Draft · ${type}</div><dl>
+      <dt>App</dt><dd>${esc(d.app_name)}</dd><dt>Summary</dt><dd>${esc(d.short_description)}</dd>
+      <dt>Details</dt><dd>${esc(d.description)}</dd>${color}
+      ${d.acceptance_criteria ? `<dt>Done when</dt><dd>${esc(d.acceptance_criteria)}</dd>` : ""}
+      <dt>Urgency</dt><dd>${LEVEL[d.urgency]} · impact ${LEVEL[d.impact].toLowerCase()}</dd></dl>
+      <div class="row">${actions}</div></div>`;
+}
+
+function ticketCard(t) {
+  return `<div class="tcard done"><div class="k">Raised · ${t.table === "change_request" ? "Change request" : "Incident"}</div>
+    <dl><dt>Number</dt><dd><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.number)} ↗</a></dd>
+    <dt>App</dt><dd>${esc(t.app)}</dd><dt>Summary</dt><dd>${esc(t.short_description)}</dd></dl>
+    <div class="state-note">Watch its progress in the live timeline →</div></div>`;
+}
+
+function renderChat() {
+  msgs.innerHTML = chat.transcript.map(e => {
+    const text = e.text ? `<div class="msg ${e.role}">${linkify(esc(e.text))}</div>` : "";
+    const cards = (e.cards || []).map(c => c.kind === "draft" ? draftCard(c) : c.kind === "ticket" ? ticketCard(c) : "").join("");
+    return text + cards;
+  }).join("") + (busy ? `<div class="typing">Assistant is typing</div>` : "");
+  msgs.scrollTop = msgs.scrollHeight;
+  hints.innerHTML = chat.transcript.length <= 1 ? HINTS.map(h => `<button class="btn hint" type="button">${esc(h)}</button>`).join("") : "";
+  sendBtn.disabled = busy;
+  msgs.querySelectorAll("[data-confirm]").forEach(b => b.disabled = busy);
+}
+
+async function startChat(fresh) {
+  const saved = fresh ? null : store.get("incidentflow.chat");
+  if (saved) {
+    const r = await fetch("/api/chat/" + encodeURIComponent(saved));
+    if (r.ok) { chat = await r.json(); renderChat(); return; }
+  }
+  chat = await fetch("/api/chat", { method: "POST" }).then(r => r.json());
+  store.set("incidentflow.chat", chat.id);
+  renderChat();
+}
+
+async function send(text, confirmDraft) {
+  if (busy || (!text.trim() && !confirmDraft)) return;
+  busy = true;
+  chat.transcript.push({ role: "user", text: text || "Yes, please raise it." });
+  renderChat();
+  try {
+    const r = await fetch(`/api/chat/${encodeURIComponent(chat.id)}/messages`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, confirm_draft: confirmDraft || null }),
+    });
+    if (!r.ok) throw new Error(r.status);
+    const out = await r.json();
+    chat.transcript.pop();
+    chat.transcript.push(...out.entries);
+    chat.draft = out.draft; chat.tickets = out.tickets;
+  } catch (e) {
+    chat.transcript.push({ role: "assistant", text: "Sorry, something went wrong sending that. Please try again." });
+  } finally {
+    busy = false;
+    renderChat();
+    input.focus();
+  }
+}
+
+document.getElementById("compose").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = input.value; input.value = ""; input.style.height = "";
+  send(text);
+});
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("compose").requestSubmit(); }
+});
+input.addEventListener("input", () => { input.style.height = ""; input.style.height = Math.min(input.scrollHeight, 140) + "px"; });
+msgs.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-confirm]");
+  if (c) return send("", c.dataset.confirm);
+  if (e.target.closest("[data-edit]")) { input.value = "Please change "; input.focus(); }
+});
+hints.addEventListener("click", (e) => { const h = e.target.closest(".hint"); if (h) send(h.textContent); });
+document.getElementById("newchat").addEventListener("click", () => { if (!busy) { store.del("incidentflow.chat"); startChat(true); } });
+
+loadBoard().then(connect);
+startChat(false);
+</script>
+</body>
+</html>

@@ -7,4 +7,5 @@ app_location  = "centralindia"
 # subscription_id = "00000000-0000-0000-0000-000000000000"   # else ARM_SUBSCRIPTION_ID / `az account show`
 # ssh_public_key_path = "~/.ssh/id_ed25519.pub"
 # manage_github = false   # set the GitHub variables by hand instead (see outputs)
-# extra_federated_subjects = ["repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production"]
+# extra_federated_credentials = { "ids-environment-production" = "repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production" }
+# tfstate_account_name = "existingaccount"   # adopt an existing account; pair with import blocks in a gitignored *.local.tf

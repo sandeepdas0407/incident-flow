@@ -51,14 +51,19 @@ data "azurerm_subscription" "current" {}
 locals {
   repo_slug = "${var.github_owner}/${var.github_repo}"
 
-  federated_subjects = concat(
-    [
-      "repo:${local.repo_slug}:ref:refs/heads/main",
-      "repo:${local.repo_slug}:pull_request",
-      "repo:${local.repo_slug}:environment:production",
-    ],
-    var.extra_federated_subjects,
+  # name => subject. Default names match the README's manual `az` commands, so existing credentials import cleanly.
+  federated_credentials = merge(
+    {
+      for s in [
+        "repo:${local.repo_slug}:ref:refs/heads/main",
+        "repo:${local.repo_slug}:pull_request",
+        "repo:${local.repo_slug}:environment:production",
+      ] : substr(replace(trimprefix(s, "repo:"), "/[^A-Za-z0-9-]/", "-"), 0, 120) => s
+    },
+    var.extra_federated_credentials,
   )
+
+  tfstate_account_name = var.tfstate_account_name != null ? var.tfstate_account_name : "${var.tfstate_account_prefix}${one(random_string.tfstate[*].result)}"
 
   tags = {
     project = "incident-flow-demo"
@@ -71,6 +76,8 @@ locals {
 # ---------------------------------------------------------------------------------------------------------------
 
 resource "random_string" "tfstate" {
+  count = var.tfstate_account_name == null ? 1 : 0
+
   length  = 6
   upper   = false
   special = false
@@ -83,7 +90,7 @@ resource "azurerm_resource_group" "tfstate" {
 }
 
 resource "azurerm_storage_account" "tfstate" {
-  name                            = "${var.tfstate_account_prefix}${random_string.tfstate.result}"
+  name                            = local.tfstate_account_name
   resource_group_name             = azurerm_resource_group.tfstate.name
   location                        = azurerm_resource_group.tfstate.location
   account_tier                    = "Standard"
@@ -125,10 +132,10 @@ resource "azuread_service_principal" "gha" {
 }
 
 resource "azuread_application_federated_identity_credential" "gha" {
-  for_each = toset(local.federated_subjects)
+  for_each = local.federated_credentials
 
   application_id = azuread_application.gha.id
-  display_name   = substr(replace(each.value, "/[^A-Za-z0-9-]/", "-"), 0, 120)
+  display_name   = each.key
   issuer         = "https://token.actions.githubusercontent.com"
   subject        = each.value
   audiences      = ["api://AzureADTokenExchange"]

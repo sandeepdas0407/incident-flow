@@ -14,3 +14,4 @@ demo-app-repo/
 *.tfstate.*
 *.tfplan
 azure/bootstrap/terraform.tfvars
+azure/bootstrap/*.local.tf

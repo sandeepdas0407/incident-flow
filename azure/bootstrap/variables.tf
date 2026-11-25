@@ -26,6 +26,12 @@ variable "tfstate_account_prefix" {
   }
 }
 
+variable "tfstate_account_name" {
+  type        = string
+  description = "Use this exact storage account name instead of prefix + random suffix (e.g. to adopt an existing account)."
+  default     = null
+}
+
 variable "grant_current_user_state_access" {
   type        = bool
   description = "Give the identity running this bootstrap Storage Blob Data Contributor on the state account (needed for local plan/destroy of the app infra)."
@@ -50,14 +56,14 @@ variable "github_repo" {
   default     = "incident-flow-demo-app"
 }
 
-variable "extra_federated_subjects" {
-  type        = list(string)
+variable "extra_federated_credentials" {
+  type        = map(string)
   description = <<-EOT
-    Additional OIDC subjects. GitHub may send the immutable-ID form, e.g.
-    "repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production". If azure/login fails with AADSTS700213,
-    copy the subject from the error into this list.
+    Additional OIDC credentials, as name => subject. GitHub may send the immutable-ID form, e.g.
+    { "ids-environment-production" = "repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production" }.
+    If azure/login fails with AADSTS700213, add the subject from the error here.
   EOT
-  default     = []
+  default     = {}
 }
 
 # --- GitHub repository configuration -------------------------------------------------------------------------------
